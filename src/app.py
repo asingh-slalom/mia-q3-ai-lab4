@@ -5,7 +5,7 @@ A FastAPI application that enables Slalom consultants to register their
 capabilities and manage consulting expertise across the organization.
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 import os
@@ -120,8 +120,41 @@ def root():
 
 
 @app.get("/capabilities")
-def get_capabilities():
-    return capabilities
+def get_capabilities(
+    practice_area: str | None = Query(default=None),
+    industry_vertical: str | None = Query(default=None),
+    certification: str | None = Query(default=None),
+    min_capacity: int | None = Query(default=None, ge=0)
+):
+    """Return capabilities, optionally filtered by common search criteria."""
+    filtered_capabilities = {}
+
+    for capability_name, capability_data in capabilities.items():
+        if practice_area and capability_data["practice_area"].lower() != practice_area.lower():
+            continue
+
+        if industry_vertical:
+            vertical_match = any(
+                industry.lower() == industry_vertical.lower()
+                for industry in capability_data["industry_verticals"]
+            )
+            if not vertical_match:
+                continue
+
+        if certification:
+            certification_match = any(
+                cert.lower() == certification.lower()
+                for cert in capability_data["certifications"]
+            )
+            if not certification_match:
+                continue
+
+        if min_capacity is not None and capability_data["capacity"] < min_capacity:
+            continue
+
+        filtered_capabilities[capability_name] = capability_data
+
+    return filtered_capabilities
 
 
 @app.post("/capabilities/{capability_name}/register")
